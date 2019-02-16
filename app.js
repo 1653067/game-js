@@ -6,7 +6,7 @@ const app = express();
 app.use(express.static(__dirname + '/public'));
 
 app.get('/terris', (req, res) => {
-    res.sendFile(__dirname + '/terris/index.html');
+    res.sendFile(__dirname + '/public/terris/index.html');
 });
 
 const port = process.argv[2] || 3000;
