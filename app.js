@@ -12,6 +12,10 @@ app.get('/', (req, res) => {
     res.render('terris/index');
 });
 
+app.get('/flappy-bird', (req, res) => {
+    res.render('flappybird/index');
+})
+
 const PORT = process.env.PORT || 3000;
 
 app.listen(PORT, () => console.log(`Listening on ${PORT}`));
