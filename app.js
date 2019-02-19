@@ -14,7 +14,11 @@ app.get('/', (req, res) => {
 
 app.get('/flappy-bird', (req, res) => {
     res.render('flappybird/index');
-})
+});
+
+app.get('/space-ship', (req, res) => {
+    res.render('spaceship/index');
+});
 
 const PORT = process.env.PORT || 3000;
 
