@@ -78,49 +78,47 @@ class Bullet {
     constructor(x, y, alpha) {
         this.x = x;
         this.y = y;
+        this.sy = y;
         this.alpha = 0;
         this.d = 10;
         this.count = 0;
         this.speed = 300;
         this.damage = 20;
         this.alpha = alpha;
+        this.color = '#fff';
         this.collision = false;
     }
 
-    update(dt) {
-        const cos = Math.cos(toRad(90 - this.alpha));
-        const sin = Math.sin(toRad(90 - this.alpha));
-
+    update(ship, dt) {
+        this.ship = ship;
         this.y -= this.speed * dt;
-        ctx.strokeStyle = '#fff';
+        ctx.strokeStyle = this.color;
         ctx.lineWidth = 3;
         ctx.beginPath();
 
-        const x = this.x;
+        const cos = Math.cos(toRad(this.alpha));
+        const sin = Math.sin(toRad(this.alpha));
+        const d1 = ship.y - this.y;
+        const d2 = ship.y - this.y - this.d;
 
-        // ctx.moveTo(x, this.y);
-        // ctx.lineTo(x, this.y - 10);
-
-        ctx.moveTo(x + (ship.y - this.y) * sin, (ship.y - this.y) * cos + ship.y);
-        ctx.lineTo(x + (ship.y - this.y - 10) * sin, (ship.y - this.y - 10) * cos + ship.y);
-
-        // ctx.moveTo(x + (ship.y - this.y) * cos, (ship.y - this.y) * sin + ship.y);
-        // ctx.lineTo(x + (ship.y - this.y - 10) * cos, (ship.y - this.y - 10) * sin + ship.y);
-
+        ctx.moveTo(this.x + sin * d1, ship.y + cos * d1);
+        ctx.lineTo(this.x + sin * d2, ship.y + cos * d2);
+        
         ctx.stroke();
         ctx.closePath();
     }
 
     get rect() {
-        const cos = Math.cos(toRad(90 - this.alpha));
-        const sin = Math.sin(toRad(90 - this.alpha));
-        const x = this.x;
+        const cos = Math.cos(toRad(this.alpha));
+        const sin = Math.sin(toRad(this.alpha));
+        const d1 = this.ship.y - this.y;
+        const d2 = this.ship.y - this.y - this.d;
         return new Rect
             (
-                x + (ship.y - this.y) * sin,
-                (ship.y - this.y) * cos + ship.y,
-                x + (ship.y - this.y - 10) * sin,
-                (ship.y - this.y - 10) * cos + ship.y
+                this.x + sin * d1,
+                this.ship.y + cos * d1,
+                this.x + sin * d2,
+                this.ship.y + cos * d2
             );
     }
 }
@@ -211,51 +209,115 @@ class Obstacles extends Component {
     update(dt) {
         this.y += this.speed * dt;
 
-        const rectShip = new Rect(ship.x, ship.y, ship.x + ship.width, ship.y + ship.height);
-        
-        if(this.rect.collision(rectShip) && !this.collision) {
-            ship.hitpoint = (ship.hitpoint - this.damage) < 0 ? 0 : (ship.hitpoint - this.damage);
-            this.collision = true;
-            this.width = this.height = 0;
+        if(!this.collision) {
+            const rectShip = new Rect(ship.x, ship.y, ship.x + ship.width, ship.y + ship.height);
+            
+            if(this.rect.collision(rectShip)) {
+                ship.hitpoint = (ship.hitpoint - this.damage) < 0 ? 0 : (ship.hitpoint - this.damage);
+                this.collision = true;
+                this.width = this.height = 0;
+                this.hitpoint = 0;
+                this.dead();
+            }
+
+            bullets.forEach(b => {
+                if(this.rect.collision(b.rect) && !b.collision) {
+                    this.hitpoint -= b.damage;
+                    b.collision = true;
+                    if(this.hitpoint < 0) {
+                        this.dead();
+                    }
+                }
+            });
         }
 
-        bullets.forEach(b => {
-            if(this.rect.collision(b.rect) && !b.collision) {
-                this.hitpoint -= b.damage;
-                b.collision = true;
-                if(this.hitpoint < 0) {
-                    this.collision = true; 
-                    this.width = this.height = 0;
-                    if(this.item != -1) {
-                        const item = new Item(this.x, this.y, 20, 20, this.item);
-                        switch(this.item) {
-                            case 0:
-                                item.image.src = '/spaceship/bullet.png';
-                            break;
-                            case 1:
-                                item.image.src = '/spaceship/health.png';
-                            break;
-                        }
-                        items.push(item);
+        if(this.y > ctx.canvas.height + this.height) {
+            this.reset();
+        }
+    }
 
-                    }
+    dead() {
+        this.collision = true;
+        this.width = this.height = 0;
+        if (this.item != -1) {
+            const item = new Item(this.x, this.y, 20, 20, this.item);
+            switch (this.item) {
+                case 0:
+                    item.image.src = '/spaceship/bullet.png';
+                    break;
+                case 1:
+                    item.image.src = '/spaceship/health.png';
+                    break;
+            }
+            items.push(item);
+        } 
+    }
+
+    reset() {
+        this.x = Math.floor(Math.random() * ctx.canvas.width);
+        this.width = this.height = Math.floor(Math.random() * 8) + 16;
+        this.y = -this.height;
+        this.collision = false;
+        this.hitpoint = 100;
+        this.item = Math.floor(Math.random() * 20);
+    }
+}
+
+class Enemy extends Obstacles {
+    constructor(x, y, width, height, hitpoint, speed, bullet) {
+        super(x, y, width, height, hitpoint, speed);
+        this.bullet = bullet;
+        this.bullets = [];
+        this.delay = 100;
+        this.count = 0;
+    }
+
+    update(dt) {
+        super.update(dt);
+        if(this.hitpoint > 0) {
+            this.count--;
+            if(this.count < 0) {
+                this.count = this.delay;
+                let deg = - Math.floor(this.bullet / 2) * 30;
+                for(let i = 0; i < this.bullet; i++) {                
+                    let bullet = new Bullet(this.x + this.width / 2, this.y - this.height , deg);
+                    bullet.speed = 20;
+                    bullet.color = '#0ff';
+                    bullet.damage = 10;
+                    this.bullets.push(bullet);
+                    deg += 30;
+                }
+            }
+        }   
+
+        const rectShip = new Rect(ship.x, ship.y, ship.x + ship.width, ship.y + ship.height);
+        this.bullets.forEach(b => {
+            b.update(this, dt);
+            if(rectShip.collision(b.rect) && !b.collision) {
+                b.collision = true;
+                ship.hitpoint -= b.damage;
+                if(ship.hitpoint < 0) {
+                    ship.hitpoint = 0;
                 }
             }
         });
+        this.bullets = this.bullets.filter(b => !b.collision);
+    }
 
-        if(this.y > ctx.canvas.height + this.height) {
-            this.x = Math.floor(Math.random() * ctx.canvas.width);
-            this.width = this.height = Math.floor(Math.random() * 8) + 16;
-            this.y = -this.height;
-            this.collision = false;
-            this.hitpoint = 100;
-            this.item = Math.floor(Math.random() * 20);
-        }
+    reset() {
+        this.x = Math.floor(Math.random() * ctx.canvas.width);
+        this.width = this.height = 24;
+        this.y = -this.height;
+        this.collision = false;
+        this.hitpoint = 100;
+        this.item = Math.floor(Math.random() * 20);
+        this.count = 0;
+        this.bullets = [];
     }
 }
 
 let pt = 0;
-let count = 10;
+let count = ship.delay;
 
 const loop = function(time_stamp) {
     const dt = (time_stamp - pt) /1000;
@@ -280,23 +342,28 @@ const loop = function(time_stamp) {
         ship.y += ship.speed * dt;
     }
 
-    if(controller.shot) {
-        count--;
-        if(count == 0) {
-            count = ship.delay;
-            let deg = 270 - Math.floor(ship.bullet / 2) * 30;
-            for(let i = 0; i < ship.bullet; i++) {
-                bullets.push(new Bullet(ship.x + ship.width / 2, ship.y, deg));
-                deg += 30;
-            }
+    // if(controller.shot) {
+    count--;
+    if (count == 0) {
+        count = ship.delay;
+        let deg = 180 - Math.floor(ship.bullet / 2) * 30;
+        for (let i = 0; i < ship.bullet; i++) {
+            bullets.push(new Bullet(ship.x + ship.width / 2, ship.y, deg));
+            deg += 30;
         }
     }
+    // }
     ship.draw();
-    bullets.forEach(i => i.update(dt));
+    bullets.forEach(i => i.update(ship, dt));
 
     meteors.forEach(m => {
         m.update(dt);
         m.draw();
+    });
+
+    enemys.forEach(enemy => {
+        enemy.update(dt);
+        enemy.draw();
     });
 
     items.forEach(item => {
@@ -318,10 +385,17 @@ ship.x = ctx.canvas.width / 2 - ship.width / 2;
 ship.y = ctx.canvas.height - ship.height;
 
 let meteors = [];
-for(let i = 0; i < 10; i++) {
-    const m = new Obstacles(100 + Math.floor(Math.random() * 200), 1000, 24, 24, 100, Math.floor(Math.random() * 30) + 50);
+for(let i = 0; i < 5; i++) {
+    const m = new Obstacles(Math.floor(Math.random() * ctx.canvas.width), -24, 24, 24, 100, Math.floor(Math.random() * 30) + 50);
     m.image.src = '/spaceship/meteorite.png'
     meteors.push(m);
+}
+
+let enemys = [];
+for(let i = 0; i < 3; i++) {
+    const enemy = new Enemy(100 + Math.floor(Math.random() * ctx.canvas.width), -24, 24, 24, 100, Math.floor(Math.random() * 30) + 50, 3);
+    enemy.image.src = '/spaceship/enemy.png'
+    enemys.push(enemy);
 }
 
 window.addEventListener('keydown',controller.keyUpDown);
