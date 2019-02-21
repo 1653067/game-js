@@ -75,7 +75,7 @@ const controller = {
 }
 
 class Bullet {
-    constructor(x, y, alpha) {
+    constructor(x, y, alpha, frame_index) {
         this.x = x;
         this.y = y;
         this.sy = y;
@@ -87,25 +87,31 @@ class Bullet {
         this.alpha = alpha;
         this.color = '#fff';
         this.collision = false;
+        this.frame_index = frame_index;
     }
 
     update(ship, dt) {
         this.ship = ship;
         this.y -= this.speed * dt;
-        ctx.strokeStyle = this.color;
-        ctx.lineWidth = 3;
-        ctx.beginPath();
 
         const cos = Math.cos(toRad(this.alpha));
         const sin = Math.sin(toRad(this.alpha));
         const d1 = ship.y - this.y;
         const d2 = ship.y - this.y - this.d;
 
-        ctx.moveTo(this.x + sin * d1, ship.y + cos * d1);
-        ctx.lineTo(this.x + sin * d2, ship.y + cos * d2);
+        const x = this.x + sin * d1 - 7.5;
+        const y = ship.y + cos * d1;
+
+        // ctx.strokeStyle = this.color;
+        // ctx.lineWidth = 3;
+        // ctx.beginPath();
+
+        // ctx.moveTo(this.x + sin * d1, ship.y + cos * d1);
+        // ctx.lineTo(this.x + sin * d2, ship.y + cos * d2);
         
-        ctx.stroke();
-        ctx.closePath();
+        // ctx.stroke();
+        // ctx.closePath();
+        ctx.drawImage(bulletImage, frame_bullet[this.frame_index].x, frame_bullet[this.frame_index].y, 15, 15, x, y, 15, 15);
     }
 
     get rect() {
@@ -278,14 +284,19 @@ class Enemy extends Obstacles {
             this.count--;
             if(this.count < 0) {
                 this.count = this.delay;
-                let deg = - Math.floor(this.bullet / 2) * 30;
+                let deg = - Math.floor(this.bullet / 2) * 22.5;
+                let frame = Math.floor(this.bullet / 2);
                 for(let i = 0; i < this.bullet; i++) {                
-                    let bullet = new Bullet(this.x + this.width / 2, this.y - this.height , deg);
+                    let bullet = new Bullet(this.x + this.width / 2, this.y - this.height , deg, frame);
                     bullet.speed = 20;
                     bullet.color = '#0ff';
                     bullet.damage = 10;
                     this.bullets.push(bullet);
-                    deg += 30;
+                    deg += 22.5;
+                    frame--;
+                    if(frame < 0) {
+                        frame = frame_bullet.length - 1;
+                    }
                 }
             }
         }   
@@ -342,17 +353,18 @@ const loop = function(time_stamp) {
         ship.y += ship.speed * dt;
     }
 
-    // if(controller.shot) {
     count--;
     if (count == 0) {
         count = ship.delay;
-        let deg = 180 - Math.floor(ship.bullet / 2) * 30;
+        let deg = 180 + Math.floor(ship.bullet / 2) * 22.5;
+        let frame = Math.floor(frame_bullet.length / 2) - Math.floor(ship.bullet / 2);
         for (let i = 0; i < ship.bullet; i++) {
-            bullets.push(new Bullet(ship.x + ship.width / 2, ship.y, deg));
-            deg += 30;
+            bullets.push(new Bullet(ship.x + ship.width / 2, ship.y, deg, frame));
+            deg -= 22.5;
+            frame++;
         }
     }
-    // }
+    
     ship.draw();
     bullets.forEach(i => i.update(ship, dt));
 
@@ -397,6 +409,27 @@ for(let i = 0; i < 3; i++) {
     enemy.image.src = '/spaceship/enemy.png'
     enemys.push(enemy);
 }
+
+const bulletImage = new Image();
+bulletImage.src = '/spaceship/b.png';
+
+const frame_bullet = [
+    {x: 32, y: 55},
+    {x: 21, y: 55},
+    {x: 8, y: 54},
+    {x: 8, y: 42},
+    {x: 7, y: 32},
+    {x: 8, y: 21},
+    {x: 9, y: 8}, 
+    {x: 21, y: 8}, 
+    {x: 32, y: 8}, 
+    {x: 42, y: 8},
+    {x: 55, y: 8},
+    {x: 55, y: 21},
+    {x: 56, y: 32},
+    {x: 56, y: 42},
+    {x: 55, y: 54},
+    {x: 42, y: 55}];
 
 window.addEventListener('keydown',controller.keyUpDown);
 window.addEventListener('keyup', controller.keyUpDown);
