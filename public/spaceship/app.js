@@ -1,7 +1,14 @@
-const ctx = document.querySelector('canvas').getContext('2d');
+// const ctx = document.querySelector('canvas').getContext('2d');
+
+const ctx = document.createElement('canvas').getContext('2d');
+const display = document.querySelector('canvas').getContext('2d');
 
 ctx.canvas.width = 480;
 ctx.canvas.height = 270;
+
+display.canvas.width = 480 * 1.5;
+display.canvas.height = 270 * 1.5;
+display.imageSmoothingEnabled = false;
 
 const LEFT = {x: -1, y: 0};
 const UP = {x: 0, y: -1};
@@ -40,7 +47,12 @@ const ship = {
         ctx.closePath();
 
         //draw ship
+    
         ctx.drawImage(ship.image, ship.x, ship.y, ship.width, ship.height);
+        if(controller.up) {
+            ctx.drawImage(fireImage, 137, 53, 11, 18, ship.x + ship.width / 2 - 5.5, ship.y + ship.height - 2, 11, 18);
+        } else 
+        ctx.drawImage(fireImage, 116, 57, 13, 8, ship.x + ship.width / 2 - 6.5, ship.y + ship.height - 2, 13, 8);
     }
 }
 
@@ -75,10 +87,9 @@ const controller = {
 }
 
 class Bullet {
-    constructor(x, y, alpha, frame_index) {
+    constructor(x, y, alpha, frame_index, ship) {
         this.x = x;
         this.y = y;
-        this.sy = y;
         this.alpha = 0;
         this.d = 10;
         this.count = 0;
@@ -88,30 +99,25 @@ class Bullet {
         this.color = '#fff';
         this.collision = false;
         this.frame_index = frame_index;
+        this.ship = ship;
     }
 
-    update(ship, dt) {
-        this.ship = ship;
+    update(dt) {
         this.y -= this.speed * dt;
 
         const cos = Math.cos(toRad(this.alpha));
         const sin = Math.sin(toRad(this.alpha));
-        const d1 = ship.y - this.y;
-        const d2 = ship.y - this.y - this.d;
+        const d1 = this.ship.y - this.y;
+        const d2 = this.ship.y - this.y - this.d;
 
         const x = this.x + sin * d1 - 7.5;
-        const y = ship.y + cos * d1;
+        const y = this.ship.y + cos * d1;
 
-        // ctx.strokeStyle = this.color;
-        // ctx.lineWidth = 3;
-        // ctx.beginPath();
-
-        // ctx.moveTo(this.x + sin * d1, ship.y + cos * d1);
-        // ctx.lineTo(this.x + sin * d2, ship.y + cos * d2);
-        
-        // ctx.stroke();
-        // ctx.closePath();
-        ctx.drawImage(bulletImage, frame_bullet[this.frame_index].x, frame_bullet[this.frame_index].y, 15, 15, x, y, 15, 15);
+        if(!this.collision) {
+            ctx.drawImage(bulletImage, frame_bullet[this.frame_index].x, frame_bullet[this.frame_index].y, 15, 15, x, y, 15, 15);
+        } else {
+            ctx.drawImage(explosiveImage, x, y, 16, 16);
+        }
     }
 
     get rect() {
@@ -185,8 +191,8 @@ class Item extends Component {
             switch (this.type) {
                 case 0:
                     ship.bullet += 2;
-                    if(ship.bullet > 12) {
-                        ship.bullet = 12;
+                    if(ship.bullet > 16) {
+                        ship.bullet = 16;
                     }
                 break;
                 case 1:
@@ -287,7 +293,7 @@ class Enemy extends Obstacles {
                 let deg = - Math.floor(this.bullet / 2) * 22.5;
                 let frame = Math.floor(this.bullet / 2);
                 for(let i = 0; i < this.bullet; i++) {                
-                    let bullet = new Bullet(this.x + this.width / 2, this.y - this.height , deg, frame);
+                    let bullet = new Bullet(this.x + this.width / 2, this.y - this.height , deg, frame, this);
                     bullet.speed = 20;
                     bullet.color = '#0ff';
                     bullet.damage = 10;
@@ -303,7 +309,7 @@ class Enemy extends Obstacles {
 
         const rectShip = new Rect(ship.x, ship.y, ship.x + ship.width, ship.y + ship.height);
         this.bullets.forEach(b => {
-            b.update(this, dt);
+            b.update(dt);
             if(rectShip.collision(b.rect) && !b.collision) {
                 b.collision = true;
                 ship.hitpoint -= b.damage;
@@ -334,8 +340,10 @@ const loop = function(time_stamp) {
     const dt = (time_stamp - pt) /1000;
     pt = time_stamp;
 
-    ctx.fillStyle = '#202830';
-    ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+    // ctx.fillStyle = '#202830';
+    // ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+
+    ctx.drawImage(background, 0, 0, ctx.canvas.width, ctx.canvas.height);
 
     if(controller.right && ship.x <= ctx.canvas.width - ship.width) {
         ship.x += ship.speed * dt;
@@ -359,14 +367,13 @@ const loop = function(time_stamp) {
         let deg = 180 + Math.floor(ship.bullet / 2) * 22.5;
         let frame = Math.floor(frame_bullet.length / 2) - Math.floor(ship.bullet / 2);
         for (let i = 0; i < ship.bullet; i++) {
-            bullets.push(new Bullet(ship.x + ship.width / 2, ship.y, deg, frame));
+            bullets.push(new Bullet(ship.x + ship.width / 2, ship.y, deg, frame, ship));
             deg -= 22.5;
             frame++;
         }
     }
     
     ship.draw();
-    bullets.forEach(i => i.update(ship, dt));
 
     meteors.forEach(m => {
         m.update(dt);
@@ -381,11 +388,14 @@ const loop = function(time_stamp) {
     items.forEach(item => {
         item.update(dt);
         item.draw();
-    })
+    });
+
+    bullets.forEach(i => i.update(dt));
 
     bullets = bullets.filter(b => (b.x >= -ctx.canvas.width && b.y >= -ctx.canvas.height && !b.collision));
     items = items.filter(item => (item.y <= ctx.canvas.height - item.height && !item.collision));
 
+    display.drawImage(ctx.canvas , 0, 0, ctx.canvas.width, ctx.canvas.height, 0, 0, display.canvas.width, display.canvas.height);
     window.requestAnimationFrame(loop);
 }
 
@@ -411,25 +421,35 @@ for(let i = 0; i < 3; i++) {
 }
 
 const bulletImage = new Image();
-bulletImage.src = '/spaceship/b.png';
+bulletImage.src = '/spaceship/bullet-1.png';
 
 const frame_bullet = [
-    {x: 32, y: 55},
-    {x: 21, y: 55},
-    {x: 8, y: 54},
-    {x: 8, y: 42},
-    {x: 7, y: 32},
-    {x: 8, y: 21},
-    {x: 9, y: 8}, 
-    {x: 21, y: 8}, 
-    {x: 32, y: 8}, 
-    {x: 42, y: 8},
-    {x: 55, y: 8},
-    {x: 55, y: 21},
-    {x: 56, y: 32},
-    {x: 56, y: 42},
-    {x: 55, y: 54},
-    {x: 42, y: 55}];
+    {x: 0, y: 0},
+    {x: 15, y: 0},
+    {x: 30, y: 0},
+    {x: 45, y: 0},
+    {x: 60, y: 0},
+    {x: 75, y: 0},
+    {x: 90, y: 0}, 
+    {x: 105, y: 0}, 
+    {x: 120, y: 0}, 
+    {x: 135, y: 0},
+    {x: 150, y: 0},
+    {x: 165, y: 0},
+    {x: 180, y: 0},
+    {x: 195, y: 0},
+    {x: 210, y: 0},
+    {x: 225, y: 0}
+];
+
+const explosiveImage = new Image();
+explosiveImage.src = '/spaceship/explosive.png';
+
+const fireImage = new Image();
+fireImage.src = '/spaceship/b.png';
+
+const background = new Image();
+background.src = '/spaceship/background.jpg';
 
 window.addEventListener('keydown',controller.keyUpDown);
 window.addEventListener('keyup', controller.keyUpDown);
