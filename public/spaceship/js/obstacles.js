@@ -71,10 +71,10 @@ class Obstacles extends Component {
             const item = new Item(this.x, this.y, 20, 20, this.item);
             switch (this.item) {
                 case 0:
-                    item.image.src = 'image/bullet.png';
+                    item.image.src = '/spaceship/image/bullet.png';
                     break;
                 case 1:
-                    item.image.src = 'image/health.png';
+                    item.image.src = '/spaceship/image/health.png';
                     break;
             }
             items.push(item);
